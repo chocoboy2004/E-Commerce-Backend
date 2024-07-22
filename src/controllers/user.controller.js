@@ -3,6 +3,21 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import User from "../models/user.model.js";
 
+const generateTokens = async (userId) => {
+    try {
+        const user = await User.findById(userId)
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+    
+        user.refreshToken = refreshToken
+        await user.save({ validateBeforeSave: false })
+    
+        return { accessToken, refreshToken }
+    } catch (error) {
+        throw new ApiError(500, `Error occurred while generating tokens: ${error}`)
+    }
+}
+
 const registerUser = AsyncHandler(async(req, res) => {
     /*
     1. Take firstname, lastname, gender, phone, email and password from req.body object.
@@ -72,6 +87,59 @@ const registerUser = AsyncHandler(async(req, res) => {
     )
 })
 
+const loginUser = AsyncHandler(async(req, res) => {
+    const { phone, email, password } = req.body
+
+    if (!phone && !email) {
+        throw new ApiError(400, "Phone or email is required")
+    }
+    if (phone && phone.toString().length !== 10) {
+        throw new ApiError(400, "Invalid phone number")
+    }
+    if (email && email.trim().includes("@") !== true) {
+        throw new ApiError(400, "Invalid email")
+    }
+    if (!password) {
+        throw new ApiError(400, "Password is required")
+    }
+    if (password.trim().length < 8) {
+        throw new ApiError(400, "Password should be at least 8 characters long")
+    }
+
+    const existedUser = await User.findOne({ $or: [ {phone}, {email} ] })
+    if (!existedUser) {
+        throw new ApiError(400, "Invalid email or phone")
+    }
+
+    const isPasswordCorrect = await existedUser.validatePassword(password)
+    if (!isPasswordCorrect) {
+        throw new ApiError(400, "Invalid password")
+    }
+
+    const { accessToken, refreshToken } = await generateTokens(existedUser._id)
+
+    const user = await User.findById(existedUser._id).select("-password -refreshToken")
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res
+    .status(201)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+        new ApiResponse(
+            200,
+            user,
+            "User logged in successfully"
+        )
+    )
+})
+
+
 export {
-    registerUser
+    registerUser,
+    loginUser
 }
