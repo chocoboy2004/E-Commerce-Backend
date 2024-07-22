@@ -20,7 +20,7 @@ const userSchema = new Schema({
         trim: true
     },
     phone: {
-        type: String,
+        type: Number,
         required: [true, "Phone number is required"],
         minLength: [10, "Phone number should be 10 digits long"],
         maxLength: [10, "Phone number should be 10 digits long"],
@@ -33,8 +33,13 @@ const userSchema = new Schema({
         required: [true, "Email is required"],
         trim: true,
         unique: true,
-        index: true,
-        lowercase: true
+        index: true
+    },
+    password: {
+        type: String,
+        required: [true, "Password is required"],
+        trim: true,
+        minlength: [8, "Password should be at least 8 characters long"]
     },
     refreshToken: {
         type: String
