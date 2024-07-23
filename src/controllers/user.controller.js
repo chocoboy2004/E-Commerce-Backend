@@ -170,9 +170,87 @@ const logoutUser = AsyncHandler(async(req, res) => {
     )
 })
 
+const updateProfile = AsyncHandler(async(req, res) => {
+    const { firstname, lastname, phone, email } = req.body
+
+    if (!firstname && !lastname && !phone && !email) {
+        throw new ApiError(400, "At least one field should be updated")
+    }
+
+    if (firstname && firstname.trim().length < 1) {
+        throw new ApiError(400, "Firstname should not be empty")
+    }
+    if (lastname && lastname.trim().length < 1) {
+        throw new ApiError(400, "Lastname should not be empty")        
+    }
+    if (email && email.trim().length < 1) {
+        throw new ApiError(400, "Email should not be empty")
+    }
+    if (email && email.trim().includes("@") !== true) {
+        throw new ApiError(400, "Invalid email")
+    }
+    if (phone && phone.toString().length !== 10) {
+        throw new ApiError(400, "Invalid phone number")
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                firstname: firstname ? firstname.trim() : req.user.firstname,
+                lastname: lastname ? lastname.trim() : req.user.lastname,
+                phone: phone ? Number(phone) : req.user.phone,
+                email: email ? email.trim().toLowerCase() : req.user.email
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    const updatedUser = await User.findById(user._id).select("-password -refreshToken")
+
+    return res
+    .status(201)
+    .json(
+        new ApiResponse(
+            200,
+            updatedUser,
+            "Profile updated successfully"
+        )
+    )
+})
+
+const deleteUser = AsyncHandler(async(req, res) => {
+    const user = req.user._id
+    if (!user) {
+        throw new ApiError(401, "How can you delete user without being logged in ?")
+    }
+
+    const deletedUser = await User.findByIdAndDelete(user)
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res
+    .status(201)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(
+        new ApiResponse(
+            200,
+            deletedUser.email,
+            "User profile deleted successfully"
+        )
+    )
+})
+
 
 export {
     registerUser,
     loginUser,
-    logoutUser
+    logoutUser,
+    updateProfile,
+    deleteUser
 }
