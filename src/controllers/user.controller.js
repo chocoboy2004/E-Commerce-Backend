@@ -2,6 +2,7 @@ import AsyncHandler from "../utils/AsyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import User from "../models/user.model.js";
+import bcrypt from "bcrypt";
 
 const generateTokens = async (userId) => {
     try {
@@ -138,8 +139,40 @@ const loginUser = AsyncHandler(async(req, res) => {
     )
 })
 
+const logoutUser = AsyncHandler(async(req, res) => {
+    const response = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                refreshToken: null
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res
+    .status(201)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(
+        new ApiResponse(
+            200,
+            response.email,
+            "User logged out successfully"
+        )
+    )
+})
+
 
 export {
     registerUser,
-    loginUser
+    loginUser,
+    logoutUser
 }
