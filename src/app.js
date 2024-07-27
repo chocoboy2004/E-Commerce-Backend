@@ -15,8 +15,10 @@ app.use(cookieParser())
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 import userRoute from "./routes/user.route.js"
+import sellerRoute from "./routes/seller.route.js"
 
 
 app.use("/api/v1/user", userRoute)
+app.use("/api/v1/seller", sellerRoute)
 
 export default app

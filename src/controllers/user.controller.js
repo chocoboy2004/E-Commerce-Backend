@@ -2,7 +2,7 @@ import AsyncHandler from "../utils/AsyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import User from "../models/user.model.js";
-import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 const generateTokens = async (userId) => {
     try {
@@ -246,11 +246,69 @@ const deleteUser = AsyncHandler(async(req, res) => {
     )
 })
 
+const currentUser = AsyncHandler(async(req, res) => {
+    const userProfile = req.user
+    if (!userProfile) {
+        throw new ApiError(401, "There is no user logged in")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            {
+                name: `${userProfile.firstname} ${userProfile.lastname}`,
+                email: userProfile.email
+            },
+            "Current user's details retrieved successfully"
+        )
+    )
+})
+
+const regenerateTokens = AsyncHandler(async(req, res) => {
+    const token = req.cookies?.refreshToken || req.body?.refreshToken
+    if (!token) {
+        throw new ApiError(401, "Refresh token is expired or not provided")
+    }
+
+    const decodedToken = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET)
+    const user = await User.findById(decodedToken._id).select("-password")
+
+    if (!user) {
+        throw new ApiError(401, "Invalid refresh token")
+    }
+
+    if (user.refreshToken !== token) {
+        throw new ApiError(401, "Refresh token does not match")
+    }
+
+    const { accessToken, refreshToken } = await generateTokens(user._id)
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+        new ApiResponse(
+            200,
+            user.email,
+            "User's tokens have been regenerated successfully"
+        )
+    )
+})
+
 
 export {
     registerUser,
     loginUser,
     logoutUser,
     updateProfile,
-    deleteUser
+    deleteUser,
+    currentUser,
+    regenerateTokens
 }

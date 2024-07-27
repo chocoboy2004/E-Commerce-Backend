@@ -5,7 +5,9 @@ import {
     loginUser,
     logoutUser,
     updateProfile,
-    deleteUser
+    deleteUser,
+    currentUser,
+    regenerateTokens
 } from "../controllers/user.controller.js"
 
 const router = Router()
@@ -15,5 +17,8 @@ router.route("/login").post(loginUser)
 router.route("/logout").post(verifyJWT, logoutUser)
 router.route("/update").patch(verifyJWT, updateProfile)
 router.route("/delete_profile").delete(verifyJWT, deleteUser)
+router.route("/current_user").get(verifyJWT, currentUser)
+
+router.route("/regenerate_tokens").patch(regenerateTokens)
 
 export default router
