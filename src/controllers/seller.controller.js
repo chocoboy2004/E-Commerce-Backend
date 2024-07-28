@@ -80,7 +80,7 @@ const register = AsyncHandler(async(req, res) => {
         pincode: Number(pincode)
     })
 
-    const response = await Seller.findById(seller._id).select("-password")
+    const response = await Seller.findById(seller._id).select("-password -refreshToken")
     if (!response) {
         throw new ApiError(500, "Internal server error")
     }
@@ -171,8 +171,190 @@ const logout = AsyncHandler(async(req, res) => {
     )
 })
 
+const updateName = AsyncHandler(async(req, res) => {
+    if (!req.seller._id) {
+        return null
+    }
+
+    const { fullname, displayName } = req.body
+
+    if (!fullname && !displayName) {
+        throw new ApiError(400, "Fullname or display name is required")
+    }
+    if (fullname && fullname.trim() === "") {
+        throw new ApiError(400, "Fullname cannot be empty")
+    }
+    if (fullname && fullname.length < 5) {
+        throw new ApiError(400, "Fullname should be at least 5 characters long")
+    }
+    if (displayName && displayName.trim() === "") {
+        throw new ApiError(400, "Display name cannot be empty")
+    }
+    if (displayName && displayName.length < 5) {
+        throw new ApiError(400, "Display name should be at least 5 characters long")
+    }
+
+    const response = await Seller.findByIdAndUpdate(
+        req.seller._id,
+        {
+            $set: {
+                fullname: fullname ? fullname.trim() : req.seller.fullname,
+                displayName: displayName ? displayName.trim() : req.seller.displayName
+            }
+        },
+        {
+            new: true
+        }
+    ).select("-password -refreshToken")
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            response,
+            "seller's name updated successfully"
+        )
+    )
+})
+
+const updatePhoneEmail = AsyncHandler(async(req, res) => {
+    if (!req.seller._id) {
+        return null
+    }
+
+    const { email, phone } = req.body
+    
+    if (!email &&!phone) {
+        throw new ApiError(400, "Email or phone number is required")
+    }
+    if (email && email.trim() === "") {
+        throw new ApiError(400, "Email cannot be empty")
+    }
+    if (email && !email.includes("@")) {
+        throw new ApiError(400, "Invalid email format")
+    }
+    if (phone && phone.toString().length !== 10) {
+        throw new ApiError(400, "Invalid phone number")
+    }
+
+    const response = await Seller.findByIdAndUpdate(
+        req.seller._id,
+        {
+            $set: {
+                email: email ? email.trim() : req.seller.email,
+                phone: phone ? Number(phone) : req.seller.phone
+            }
+        },
+        {
+            new: true
+        }
+    ).select("-password -refreshToken")
+
+    return res
+    .status(201)
+    .json(
+        new ApiResponse(
+            200,
+            response,
+            "seller's phone number and email updated successfully"
+        )
+    )
+})
+
+const updatePassword = AsyncHandler(async(req, res) => {
+    if (!req.seller._id) {
+        return null
+    }
+
+    const { newPassword } = req.body
+    if (!newPassword) {
+        throw new ApiError(400, "Enter password")
+    }
+    if (newPassword.trim().length < 8) {
+        throw new ApiError(400, "Password should be at least 8 characters long")
+    }
+
+    req.seller.password = newPassword.trim()
+    await req.seller.save({ validateBeforeSave: false })
+
+    return res
+    .status(201)
+    .json(
+        new ApiResponse(
+            200,
+            {},
+            "seller's password updated successfully"
+        )
+    )
+})
+
+const updateLocationAndPincode = AsyncHandler(async(req, res) => {
+    if (!req.seller._id) {
+        return null
+    }
+
+    const { newLocation, newPincode } = req.body
+    if (!newLocation && !newPincode) {
+        throw new ApiError(400, "New pickup location or pincode is required")
+    } 
+
+    if (newLocation && newLocation.trim().length < 10) {
+        throw new ApiError(400, "New pickup location should be at least 10 characters long")
+    }
+    if (newPincode && newPincode.toString().length !== 6) {
+        throw new ApiError(400, "Invalid pincode")
+    }
+
+    req.seller.pickupLocation = newLocation ? newLocation.trim() : req.seller.pickupLocation
+    req.seller.pincode = newPincode ? Number(newPincode) : req.seller.pincode
+    await req.seller.save({ validateBeforeSave: false})
+
+    const response = await Seller.findById(req.seller._id).select("-password -refreshToken")
+
+    return res
+    .status(201)
+    .json(
+        new ApiResponse(
+            200,
+            response,
+            "seller's pickup location and pincode updated successfully"
+        )
+    )
+})
+
+const deleteProfile = AsyncHandler(async(req, res) => {
+    if (!req.seller._id) {
+        return null
+    }
+
+    await Seller.findByIdAndDelete(req.seller._id)
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res
+    .status(201)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(
+        new ApiResponse(
+            200,
+            {},
+            "seller's profile deleted successfully"
+        )
+    )
+})
+
 export {
     register,
     login,
-    logout
+    logout,
+    updateName,
+    updatePhoneEmail,
+    updatePassword,
+    updateLocationAndPincode,
+    deleteProfile
 }
