@@ -2,6 +2,7 @@ import AsyncHandler from "../utils/AsyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import Seller from "../models/seller.model.js";
+import jwt from "jsonwebtoken"
 
 const generateTokens = async (sellerId) => {
     try {
@@ -348,6 +349,40 @@ const deleteProfile = AsyncHandler(async(req, res) => {
     )
 })
 
+const regenerateTokens = AsyncHandler(async(req, res) => {
+    const token = req.cookies?.refreshToken || req.body?.refreshToken
+    if (!token) {
+        throw new ApiError(401, "Refresh token is expired")
+    }
+
+    const decodedToken = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET)
+    const seller = await Seller.findById(decodedToken._id).select("-password")
+    if (!seller) {
+        throw new ApiError(401, "Invalid refresh token")
+    }
+    if (seller.refreshToken !== token) {
+        throw new ApiError(401, "Invalid refresh token")
+    }
+
+    const { accessToken, refreshToken } = await generateTokens(seller._id)
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res
+    .status(201)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+        new ApiResponse(
+            200,
+            {},
+            "seller's tokens regenerated successfully"
+        )
+    )          
+})
+
 export {
     register,
     login,
@@ -356,5 +391,6 @@ export {
     updatePhoneEmail,
     updatePassword,
     updateLocationAndPincode,
-    deleteProfile
+    deleteProfile,
+    regenerateTokens
 }
